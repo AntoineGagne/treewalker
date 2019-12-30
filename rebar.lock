@@ -1,0 +1,18 @@
+{"1.1.0",
+[{<<"ecureuil">>,{pkg,<<"ecureuil">>,<<"1.0.0">>},0},
+ {<<"flatlog">>,
+  {git,"https://github.com/ferd/flatlog.git",
+       {ref,"24baef3298bd7b6a4a94a9f021d5f492ad98d691"}},
+  0},
+ {<<"gproc">>,{pkg,<<"gproc">>,<<"0.8.0">>},0},
+ {<<"mochiweb">>,{pkg,<<"mochiweb">>,<<"2.18.0">>},1},
+ {<<"recon">>,{pkg,<<"recon">>,<<"2.5.0">>},0},
+ {<<"robots">>,{pkg,<<"robots">>,<<"1.0.0">>},0}]}.
+[
+{pkg_hash,[
+ {<<"ecureuil">>, <<"554F5E41A833E60C02ABCC552962A6E018225DD903180CB1AB896D8F14F00670">>},
+ {<<"gproc">>, <<"CEA02C578589C61E5341FCE149EA36CCEF236CC2ECAC8691FBA408E7EA77EC2F">>},
+ {<<"mochiweb">>, <<"EB55F1DB3E6E960FAC4E6DB4E2DB9EC3602CC9F30B86CD1481D56545C3145D2E">>},
+ {<<"recon">>, <<"2F7FCBEC2C35034BADE2F9717F77059DC54EB4E929A3049CA7BA6775C0BD66CD">>},
+ {<<"robots">>, <<"F92CD695433FD08F1AAC07AB6A4241D9983F69B363270823F0B36264869ADDB1">>}]}
+].
