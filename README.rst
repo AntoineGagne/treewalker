@@ -2,6 +2,9 @@
 treewalker
 ==========
 
+.. image:: https://travis-ci.org/AntoineGagne/treewalker.svg?branch=master
+    :target: https://travis-ci.org/AntoineGagne/treewalker
+
 :Author: `Antoine Gagné <gagnantoine@gmail.com>`_
 
 .. contents::
