@@ -1,8 +1,3 @@
-%%%-------------------------------------------------------------------
-%% @doc treewalker top level supervisor.
-%% @end
-%%%-------------------------------------------------------------------
-
 -module(treewalker_sup).
 
 -behaviour(supervisor).
@@ -11,10 +6,17 @@
 
 -export([init/1]).
 
--define(SERVER, ?MODULE).
+%%%===================================================================
+%%% API
+%%%===================================================================
 
+-spec start_link() -> {ok, pid()} | ignore | {error, term()}.
 start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
 
 %% sup_flags() = #{strategy => strategy(),         % optional
 %%                 intensity => non_neg_integer(), % optional
@@ -31,5 +33,3 @@ init([]) ->
                  period => 1},
     ChildSpecs = [],
     {ok, {SupFlags, ChildSpecs}}.
-
-%% internal functions
