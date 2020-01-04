@@ -22,6 +22,7 @@
                     name := name()}.
 
 -export_type([name/0,
+              url/0,
               page/0,
               content/0]).
 
