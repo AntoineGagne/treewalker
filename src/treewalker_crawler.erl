@@ -1,44 +1,48 @@
 -module(treewalker_crawler).
 
--behaviour(gen_server).
+-behaviour(gen_statem).
 
 %% API
--export([start_link/0]).
+-export([start_link/2]).
 
-%% gen_server callbacks
+%% gen_statem callbacks
 -export([init/1,
-         handle_call/3,
-         handle_cast/2,
-         handle_info/2,
-         terminate/2]).
+         callback_mode/0,
+         handle_event/4,
+         terminate/3]).
 
--record(state, {}).
+-record(data, {config :: config()}).
+
+-define(VIA_GPROC(Id), {via, gproc, {n, l, Id}}).
+
+-type config() :: treewalker_crawler_config:config().
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
--spec start_link() -> {ok, pid()} | ignore | {error, term()}.
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+-spec start_link(term(), config()) -> {ok, pid()} | {error, term()}.
+start_link(Id, Config) ->
+    gen_statem:start_link(?VIA_GPROC(Id), ?MODULE, [Config], []).
 
 %%%===================================================================
-%%% gen_server callbacks
+%%% gen_statem callbacks
 %%%===================================================================
 
-init([]) ->
-    {ok, #state{}}.
+callback_mode() ->
+    [handle_event_function].
 
-handle_call(_Request, _From, State) ->
-    {reply, ok, State}.
+init([Config]) ->
+    {ok, start, #data{config = Config}}.
 
-handle_cast(_Msg, State) ->
-    {noreply, State}.
+handle_event(cast, _Action, _State, _Data) ->
+    keep_state_and_data;
+handle_event({call, From}, _Action, State, Data) ->
+    {next_state, State, Data, [{reply, From, Data}]};
+handle_event(info, _Msg, _State, _Data) ->
+    keep_state_and_data.
 
-handle_info(_Info, State) ->
-    {noreply, State}.
-
-terminate(_Reason, _State) ->
+terminate(_Reason, _State, _Data) ->
     ok.
 
 %%%===================================================================
