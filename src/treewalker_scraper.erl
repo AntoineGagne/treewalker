@@ -40,7 +40,7 @@ scrap(_Url, _PageData, _ScrappingOptions) ->
 scrap_links(_Url, PageData, _ScrappingOptions) ->
     case ecureuil:find(<<"a">>, PageData) of
         {ok, Nodes} ->
-            lists:filtermap(fun extract_link/1, Nodes);
+            {ok, lists:filtermap(fun extract_link/1, Nodes)};
         Error={error, _} ->
             Error
     end.
