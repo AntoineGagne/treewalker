@@ -14,8 +14,7 @@
 all() ->
     [
      send_response_on_start_failure,
-     send_response_on_worker_response,
-     send_response_on_worker_crash
+     send_response_on_worker_response
     ].
 
 init_per_suite(Config) ->
