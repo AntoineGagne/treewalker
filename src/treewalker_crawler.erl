@@ -35,7 +35,7 @@ callback_mode() ->
 init([Config]) ->
     {ok, start, #data{config = Config}}.
 
-handle_event(cast, _Action, _State, _Data) ->
+handle_event(cast, _Message, _State, _Data) ->
     keep_state_and_data;
 handle_event({call, From}, _Action, State, Data) ->
     {next_state, State, Data, [{reply, From, Data}]};
