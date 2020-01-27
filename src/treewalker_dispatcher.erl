@@ -6,7 +6,8 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2]).
+-export([start_link/2,
+         request/2]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -17,23 +18,29 @@
 
 -record(state, {config :: config(),
                 retry_policy :: retry_policy(),
-                callers_by_workers_pids = #{} :: #{pid() := pid()}}).
+                callers_by_workers_pids = #{} :: #{pid() := {url(), pid()}}}).
 
 -define(VIA_GPROC(Id), {via, gproc, {n, l, Id}}).
 -define(MIN_RETRY_DELAY, 1000).
 -define(MAX_RETRY_DELAY, 5 * 60000).
 -define(MAX_RETRIES, 5).
 
+-type url() :: treewalker_page:url().
 -type retry_policy() :: treewalker_worker:retry_policy().
 -type config() :: treewalker_crawler_config:config().
+-type id() :: term().
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
--spec start_link(term(), config()) -> {ok, pid()} | {error, term()}.
+-spec start_link(id(), config()) -> {ok, pid()} | {error, term()}.
 start_link(Id, Config) ->
     gen_server:start_link(?VIA_GPROC(Id), ?MODULE, [Config], []).
+
+-spec request(id(), url()) -> ok.
+request(Id, Url) ->
+    gen_server:cast(?VIA_GPROC(Id), {request, self(), Url}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -58,12 +65,12 @@ handle_cast({request, Caller, Url}, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info({treewalker_worker, _Pid, _Url, _Reason}, State) ->
-    %% TODO: Respond to caller
-    {noreply, State};
-handle_info({'EXIT', _Pid, _Reason}, State) ->
-    %% TODO: Respond to caller
-    {noreply, State};
+handle_info({treewalker_worker, Pid, Url, Reason}, State) ->
+    ?LOG_DEBUG(#{what => worker_response, pid => Pid, url => Url, reason => Reason}),
+    maybe_response_to_caller(Reason, Pid, State);
+handle_info({'EXIT', Pid, Reason}, State) ->
+    ?LOG_ERROR(#{what => worker_response, pid => Pid, result => error, reason => Reason}),
+    maybe_response_to_caller({error, Reason}, Pid, State);
 
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -81,10 +88,19 @@ try_start_worker(Caller, Url, State=#state{retry_policy = RetryPolicy, config = 
             ?LOG_INFO(#{what => request_received, requester => Caller, status => in_progress,
                         worker_pid => Pid, url => Url}),
             CallersByWorkersPids = State#state.callers_by_workers_pids,
-            State#state{callers_by_workers_pids = CallersByWorkersPids#{Pid => Caller}};
+            State#state{callers_by_workers_pids = CallersByWorkersPids#{Pid => {Url, Caller}}};
         Error={error, _} ->
             ?LOG_ERROR(#{what => request_received, requester => Caller, status => done,
                          result => error, reason => Error}),
             Caller ! {?MODULE, Url, Error},
             State
+    end.
+
+maybe_response_to_caller(Response, Pid, State) ->
+    case maps:take(Pid, State#state.callers_by_workers_pids) of
+        {{Url, Caller}, CallersByWorkersPids} ->
+            Caller ! {?MODULE, Url, Response},
+            {noreply, State#state{callers_by_workers_pids = CallersByWorkersPids}};
+        error ->
+            {noreply, State}
     end.
