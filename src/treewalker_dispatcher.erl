@@ -69,10 +69,11 @@ handle_info({treewalker_worker, Pid, Url, Reason}, State) ->
     ?LOG_DEBUG(#{what => worker_response, pid => Pid, url => Url, reason => Reason}),
     maybe_response_to_caller(Reason, Pid, State);
 handle_info({'EXIT', Pid, Reason}, State) ->
-    ?LOG_ERROR(#{what => worker_response, pid => Pid, result => error, reason => Reason}),
+    ?LOG_ERROR(#{what => worker_error, pid => Pid, result => error, reason => Reason}),
     maybe_response_to_caller({error, Reason}, Pid, State);
 
-handle_info(_Info, State) ->
+handle_info(Message, State) ->
+    ?LOG_WARNING(#{what => unexpected_message, message => Message}),
     {noreply, State}.
 
 terminate(_Reason, _State) ->

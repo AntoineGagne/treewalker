@@ -14,7 +14,8 @@
 all() ->
     [
      send_response_on_start_failure,
-     send_response_on_worker_response
+     send_response_on_worker_response,
+     send_response_on_worker_crash
     ].
 
 init_per_suite(Config) ->
@@ -68,7 +69,10 @@ send_response_on_worker_crash() ->
 send_response_on_worker_crash(_Config) ->
     WorkerPid = make_pid(),
     unlink(WorkerPid),
-    meck:expect(treewalker_worker, start_link, fun (_, _, _, _) -> {ok, WorkerPid} end),
+    meck:expect(treewalker_worker, start_link, fun (_, _, _, _) ->
+                                                       link(WorkerPid),
+                                                       {ok, WorkerPid}
+                                               end),
 
     ok = treewalker_dispatcher:request(?AN_ID, ?AN_URL),
     meck:wait(treewalker_worker, start_link, ['_', '_', '_', '_'], ?TIMEOUT),

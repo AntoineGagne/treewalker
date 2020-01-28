@@ -9,7 +9,8 @@
     robots,
     ecureuil,
     hackney,
-    backoff
+    backoff,
+    gproc
    ]},
   {env,[]},
   {modules, []},
