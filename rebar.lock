@@ -1,7 +1,7 @@
 {"1.1.0",
 [{<<"backoff">>,{pkg,<<"backoff">>,<<"1.1.6">>},0},
  {<<"certifi">>,{pkg,<<"certifi">>,<<"2.5.1">>},1},
- {<<"ecureuil">>,{pkg,<<"ecureuil">>,<<"1.0.0">>},0},
+ {<<"ecureuil">>,{pkg,<<"ecureuil">>,<<"1.0.1">>},0},
  {<<"flatlog">>,
   {git,"https://github.com/ferd/flatlog.git",
        {ref,"24baef3298bd7b6a4a94a9f021d5f492ad98d691"}},
@@ -21,7 +21,7 @@
 {pkg_hash,[
  {<<"backoff">>, <<"83B72ED2108BA1EE8F7D1C22E0B4A00CFE3593A67DBC792799E8CCE9F42F796B">>},
  {<<"certifi">>, <<"867CE347F7C7D78563450A18A6A28A8090331E77FA02380B4A21962A65D36EE5">>},
- {<<"ecureuil">>, <<"554F5E41A833E60C02ABCC552962A6E018225DD903180CB1AB896D8F14F00670">>},
+ {<<"ecureuil">>, <<"76EFA6BCA378459FE7B224DB3B9D9847D80CAC64145CC12AE4225D088E4828D1">>},
  {<<"gproc">>, <<"CEA02C578589C61E5341FCE149EA36CCEF236CC2ECAC8691FBA408E7EA77EC2F">>},
  {<<"hackney">>, <<"07E33C794F8F8964EE86CEBEC1A8ED88DB5070E52E904B8F12209773C1036085">>},
  {<<"idna">>, <<"689C46CBCDF3524C44D5F3DDE8001F364CD7608A99556D8FBD8239A5798D4C10">>},
