@@ -53,16 +53,16 @@ send_response_on_start_failure() ->
 send_response_on_start_failure(_Config) ->
     meck:expect(treewalker_worker, start_link, fun (_, _, _, _) -> {error, an_error} end),
 
-    ok = treewalker_dispatcher:request(?AN_ID, ?AN_URL),
+    Ref = treewalker_dispatcher:request(?AN_ID, ?AN_URL),
 
-    wait_for_message(fun (Response) -> ?assertMatch({error, an_error}, Response) end).
+    wait_for_message(Ref, fun (Response) -> ?assertMatch({error, an_error}, Response) end).
 
 send_response_on_worker_response() ->
     [{doc, "Given a worker response, when waiting for response, then sends response."}].
 send_response_on_worker_response(_Config) ->
-    ok = treewalker_dispatcher:request(?AN_ID, ?AN_URL),
+    Ref = treewalker_dispatcher:request(?AN_ID, ?AN_URL),
 
-    wait_for_message(fun (Response) -> ?assertMatch({ok, ?A_BODY}, Response) end).
+    wait_for_message(Ref, fun (Response) -> ?assertMatch({ok, ?A_BODY}, Response) end).
 
 send_response_on_worker_crash() ->
     [{doc, "Given a crashed worker, when waiting for response, then sends response."}].
@@ -74,11 +74,11 @@ send_response_on_worker_crash(_Config) ->
                                                        {ok, WorkerPid}
                                                end),
 
-    ok = treewalker_dispatcher:request(?AN_ID, ?AN_URL),
+    Ref = treewalker_dispatcher:request(?AN_ID, ?AN_URL),
     meck:wait(treewalker_worker, start_link, ['_', '_', '_', '_'], ?TIMEOUT),
     exit(WorkerPid, kill),
 
-    wait_for_message(fun (Response) -> ?assertMatch({error, _}, Response) end).
+    wait_for_message(Ref, fun (Response) -> ?assertMatch({error, _}, Response) end).
 
 %%%===================================================================
 %%% Internal functions
@@ -87,9 +87,9 @@ send_response_on_worker_crash(_Config) ->
 make_pid() ->
     spawn_link(fun () -> timer:sleep(60000) end).
 
-wait_for_message(Expectation) ->
+wait_for_message(Ref, Expectation) ->
     receive
-        {treewalker_dispatcher, ?AN_URL, Result} ->
+        {treewalker_dispatcher, Ref, ?AN_URL, Result} ->
             Expectation(Result);
         Unexpected ->
             ct:fail("Unexpected message: ~p", [Unexpected])

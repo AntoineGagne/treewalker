@@ -33,8 +33,8 @@
 %%%===================================================================
 
 -spec scrap(url(), page_data(), options()) -> {ok, content()}.
-scrap(_Url, _PageData, _ScrappingOptions) ->
-    {ok, #{}}.
+scrap(_Url, PageData, _ScrappingOptions) ->
+    {ok, PageData}.
 
 -spec scrap_links(url(), page_data(), options()) -> {ok, [url()]} | {error, term()}.
 scrap_links(_Url, PageData, _ScrappingOptions) ->

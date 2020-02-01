@@ -28,7 +28,7 @@
 -type url() :: treewalker_page:url().
 -type retry_policy() :: treewalker_worker:retry_policy().
 -type config() :: treewalker_crawler_config:config().
--type id() :: term().
+-type id() :: treewalker_crawler_sup:dispatcher_id().
 
 %%%===================================================================
 %%% API
@@ -38,9 +38,9 @@
 start_link(Id, Config) ->
     gen_server:start_link(?VIA_GPROC(Id), ?MODULE, [Config], []).
 
--spec request(id(), url()) -> ok.
+-spec request(id(), url()) -> reference().
 request(Id, Url) ->
-    gen_server:cast(?VIA_GPROC(Id), {request, self(), Url}).
+    gen_server:call(?VIA_GPROC(Id), {request, self(), Url}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -54,13 +54,14 @@ init([Config]) ->
     RetryPolicy = #retry_policy{max_retry = MaxRetry, min_delay = MinDelay, max_delay = MaxDelay},
     {ok, #state{config = Config, retry_policy = RetryPolicy}}.
 
+handle_call({request, Caller, Url}, _From, State) ->
+    ?LOG_INFO(#{what => request_received, requester => Caller, status => start, url => Url}),
+    Ref = make_ref(),
+    UpdatedState = try_start_worker(Caller, Ref, Url, State),
+    {reply, Ref, UpdatedState};
+
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
-
-handle_cast({request, Caller, Url}, State) ->
-    ?LOG_INFO(#{what => request_received, requester => Caller, status => start, url => Url}),
-    UpdatedState = try_start_worker(Caller, Url, State),
-    {noreply, UpdatedState};
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -83,24 +84,24 @@ terminate(_Reason, _State) ->
 %%% Internal functions
 %%%===================================================================
 
-try_start_worker(Caller, Url, State=#state{retry_policy = RetryPolicy, config = Config}) ->
+try_start_worker(Caller, Ref, Url, State=#state{retry_policy = RetryPolicy, config = Config}) ->
     case treewalker_worker:start_link(Url, RetryPolicy, Config, self()) of
         {ok, Pid} ->
             ?LOG_INFO(#{what => request_received, requester => Caller, status => in_progress,
                         worker_pid => Pid, url => Url}),
             CallersByWorkersPids = State#state.callers_by_workers_pids,
-            State#state{callers_by_workers_pids = CallersByWorkersPids#{Pid => {Url, Caller}}};
+            State#state{callers_by_workers_pids = CallersByWorkersPids#{Pid => {Ref, Url, Caller}}};
         Error={error, _} ->
             ?LOG_ERROR(#{what => request_received, requester => Caller, status => done,
                          result => error, reason => Error}),
-            Caller ! {?MODULE, Url, Error},
+            Caller ! {?MODULE, Ref, Url, Error},
             State
     end.
 
 maybe_response_to_caller(Response, Pid, State) ->
     case maps:take(Pid, State#state.callers_by_workers_pids) of
-        {{Url, Caller}, CallersByWorkersPids} ->
-            Caller ! {?MODULE, Url, Response},
+        {{Ref, Url, Caller}, CallersByWorkersPids} ->
+            Caller ! {?MODULE, Ref, Url, Response},
             {noreply, State#state{callers_by_workers_pids = CallersByWorkersPids}};
         error ->
             {noreply, State}

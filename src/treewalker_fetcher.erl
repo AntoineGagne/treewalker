@@ -24,7 +24,7 @@
 
 -spec request(url(), user_agent(), options()) -> {ok, binary()}.
 request(Url, UserAgent, Options) ->
-    {ok, Ref, _} = hackney:request(get, Url, [{"User-Agent", UserAgent}], Options),
+    {ok, _, _, Ref} = hackney:request(get, Url, [{"User-Agent", UserAgent}], Options),
     {ok, Status, Headers, Ref} = hackney:start_response(Ref),
     ?LOG_DEBUG(#{what => request, url => Url, user_agent => UserAgent, request_ref => Ref,
                  response_headers => Headers, response_status => Status}),

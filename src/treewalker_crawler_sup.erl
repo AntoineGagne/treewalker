@@ -12,6 +12,12 @@
 -define(DISPATCHER_ID(Id), {dispatcher, Id}).
 -define(CRAWLER_ID(Id), {crawler, Id}).
 
+-opaque dispatcher_id() :: {dispatcher, term()}.
+-opaque crawler_id() :: {crawler, term()}.
+
+-export_type([dispatcher_id/0,
+              crawler_id/0]).
+
 %%====================================================================
 %% API functions
 %%====================================================================
@@ -38,7 +44,7 @@ init([Id, Options]) ->
              type => worker,
              modules => []},
            #{id => treewalker_crawler,
-             start => {treewalker_crawler, start_link, [CrawlerId, Options]},
+             start => {treewalker_crawler, start_link, [CrawlerId, DispatcherId, Options]},
              restart => permanent,
              shutdown => 5000,
              type => worker,

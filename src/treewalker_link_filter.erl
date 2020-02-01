@@ -14,15 +14,15 @@
 %%% Callbacks
 %%%===================================================================
 
--callback filter(Url :: url()) -> {ok, IsAllowed :: boolean()} | {error, Reason :: term()}.
+-callback filter(Url :: url()) -> IsAllowed :: boolean().
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
--spec filter(url()) -> {ok, true}.
+-spec filter(url()) -> true.
 filter(_Url) ->
-    {ok, true}.
+    true.
 
 %%%===================================================================
 %%% Internal functions
