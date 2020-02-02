@@ -67,13 +67,13 @@ handle_info({timeout, _Ref, retry}, State=#state{request = #request{retry_ref = 
     Pid = spawn_link(Request#request.worker),
     {noreply, State#state{request = Request#request{pid = Pid}}};
 
-handle_info({treewalker_worker, Pid, Url, Result={ok, _}},
-            State=#state{request = #request{pid = Pid}}) ->
-    ?LOG_DEBUG(#{what => worker_finished, pid => Pid, url => Url, result => Result}),
-    State#state.parent_pid ! {?MODULE, self(), Url, Result},
+handle_info({treewalker_worker, Pid, Result={ok, _}},
+            State=#state{request = #request{pid = Pid, url = Url}}) ->
+    ?LOG_DEBUG(#{what => worker_finished, pid => Pid, url => Url, result => ok}),
+    State#state.parent_pid ! {?MODULE, self(), Result},
     {stop, normal, State};
-handle_info({treewalker_worker, Pid, Url, Error={error, _}},
-            State=#state{request = #request{pid = Pid}}) ->
+handle_info({treewalker_worker, Pid, Error={error, _}},
+            State=#state{request = #request{pid = Pid, url = Url}}) ->
     ?LOG_ERROR(#{what => worker_error, pid => Pid, url => Url, result => error, reason => Error}),
     maybe_retry(State);
 handle_info({'EXIT', Pid, Reason}, State=#state{request = #request{pid = Pid}}) ->
@@ -98,10 +98,10 @@ maybe_retry(State=#state{retry_policy = #retry_policy{max_retry = MaxRetries},
     Updated = Request#request{backoff = Backoff, retry_ref = Ref, retry_count = Count + 1,
                               pid = undefined},
     {noreply, State#state{request = Updated}};
-maybe_retry(State=#state{parent_pid = ParentPid, request = Request}) ->
+maybe_retry(State=#state{parent_pid = ParentPid}) ->
     ?LOG_ERROR(#{what => maximum_retries_reached, action => closing}),
     Error = {error, maximum_retries_reached},
-    ParentPid ! {?MODULE, self(), Request#request.url, Error},
+    ParentPid ! {?MODULE, self(), Error},
     {stop, Error, State}.
 
 make_request(Url, #state{config = Config, retry_policy = RetryPolicy}) ->
@@ -119,5 +119,5 @@ worker(Url, Config) ->
             Fetcher = treewalker_crawler_config:fetcher(Config),
             Options = treewalker_crawler_config:fetcher_options(Config),
             Result = Fetcher:request(Url, treewalker_crawler_config:user_agent(Config), Options),
-            ParentPid ! {?MODULE, self(), Url, Result}
+            ParentPid ! {?MODULE, self(), Result}
     end.

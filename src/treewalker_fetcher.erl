@@ -10,25 +10,40 @@
 -type options() :: term().
 -type url() :: treewalker_page:url().
 -type user_agent() :: treewalker_crawler_config:user_agent().
+-type status_code() :: 100..599.
 
 %%%===================================================================
 %%% Callbacks
 %%%===================================================================
 
 -callback request(Url :: url(), UserAgent :: user_agent(), RequestOptions :: options()) ->
-    {ok, Content :: binary()} | {error, Reason :: term()}.
+    {ok, {Code :: status_code(), Content :: binary()}} | {error, Reason :: term()}.
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
--spec request(url(), user_agent(), options()) -> {ok, binary()}.
+-spec request(url(), user_agent(), options()) -> {ok, {status_code(), binary()}} | {error, term()}.
 request(Url, UserAgent, Options) ->
-    {ok, _, _, Ref} = hackney:request(get, Url, [{"User-Agent", UserAgent}], Options),
-    {ok, Status, Headers, Ref} = hackney:start_response(Ref),
-    ?LOG_DEBUG(#{what => request, url => Url, user_agent => UserAgent, request_ref => Ref,
-                 response_headers => Headers, response_status => Status}),
-    hackney:body(Ref).
+    ?LOG_DEBUG(#{what => request, url => Url, user_agent => UserAgent, status => start}),
+    Headers = [{<<"User-Agent">>, UserAgent}],
+    case hackney:request(get, Url, Headers, Options, []) of
+        {ok, Code, _, Ref} ->
+            ?LOG_DEBUG(#{what => request, url => Url, user_agent => UserAgent, status => done,
+                         status_code => Code}),
+            case hackney:body(Ref) of
+                {ok, Body} ->
+                    {ok, {Code, Body}};
+                Error={error, _} ->
+                    ?LOG_DEBUG(#{what => request, url => Url, user_agent => UserAgent,
+                                 status => done, result => error, reason => Error}),
+                    Error
+            end;
+        Error={error, _} ->
+            ?LOG_DEBUG(#{what => request, url => Url, user_agent => UserAgent, status => done,
+                         result => error, reason => Error}),
+            Error
+    end.
 
 %%%===================================================================
 %%% Internal functions

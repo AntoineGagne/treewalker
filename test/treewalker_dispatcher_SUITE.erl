@@ -40,7 +40,7 @@ init_per_testcase(_Name, Config) ->
     meck:expect(treewalker_worker, start_link,
                 fun (_, _, _, _) ->
                         WorkerPid = make_pid(),
-                        Pid ! {treewalker_worker, WorkerPid, ?AN_URL, {ok, ?A_BODY}},
+                        Pid ! {treewalker_worker, WorkerPid, {ok, ?A_BODY}},
                         {ok, WorkerPid}
                 end),
     Config.
@@ -89,7 +89,7 @@ make_pid() ->
 
 wait_for_message(Ref, Expectation) ->
     receive
-        {treewalker_dispatcher, Ref, ?AN_URL, Result} ->
+        {treewalker_dispatcher, Ref, Result} ->
             Expectation(Result);
         Unexpected ->
             ct:fail("Unexpected message: ~p", [Unexpected])

@@ -18,7 +18,7 @@
 
 -record(state, {config :: config(),
                 retry_policy :: retry_policy(),
-                callers_by_workers_pids = #{} :: #{pid() := {url(), pid()}}}).
+                callers_by_workers_pids = #{} :: #{pid() := {reference(), pid()}}}).
 
 -define(VIA_GPROC(Id), {via, gproc, {n, l, Id}}).
 -define(MIN_RETRY_DELAY, 1000).
@@ -66,11 +66,11 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info({treewalker_worker, Pid, Url, Reason}, State) ->
-    ?LOG_DEBUG(#{what => worker_response, pid => Pid, url => Url, reason => Reason}),
+handle_info({treewalker_worker, Pid, Reason}, State) ->
+    ?LOG_DEBUG(#{what => worker_response, pid => Pid}),
     maybe_response_to_caller(Reason, Pid, State);
 handle_info({'EXIT', Pid, Reason}, State) ->
-    ?LOG_ERROR(#{what => worker_error, pid => Pid, result => error, reason => Reason}),
+    ?LOG_DEBUG(#{what => worker_exit, pid => Pid, reason => Reason}),
     maybe_response_to_caller({error, Reason}, Pid, State);
 
 handle_info(Message, State) ->
@@ -90,18 +90,18 @@ try_start_worker(Caller, Ref, Url, State=#state{retry_policy = RetryPolicy, conf
             ?LOG_INFO(#{what => request_received, requester => Caller, status => in_progress,
                         worker_pid => Pid, url => Url}),
             CallersByWorkersPids = State#state.callers_by_workers_pids,
-            State#state{callers_by_workers_pids = CallersByWorkersPids#{Pid => {Ref, Url, Caller}}};
+            State#state{callers_by_workers_pids = CallersByWorkersPids#{Pid => {Ref, Caller}}};
         Error={error, _} ->
             ?LOG_ERROR(#{what => request_received, requester => Caller, status => done,
                          result => error, reason => Error}),
-            Caller ! {?MODULE, Ref, Url, Error},
+            Caller ! {?MODULE, Ref, Error},
             State
     end.
 
 maybe_response_to_caller(Response, Pid, State) ->
     case maps:take(Pid, State#state.callers_by_workers_pids) of
-        {{Ref, Url, Caller}, CallersByWorkersPids} ->
-            Caller ! {?MODULE, Ref, Url, Response},
+        {{Ref, Caller}, CallersByWorkersPids} ->
+            Caller ! {?MODULE, Ref, Response},
             {noreply, State#state{callers_by_workers_pids = CallersByWorkersPids}};
         error ->
             {noreply, State}

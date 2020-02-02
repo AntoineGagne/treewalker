@@ -102,7 +102,7 @@ stop_after_exceeded_retry_count(Config) ->
 
 wait_for_message(Pid, Expectation) ->
     receive
-        {treewalker_worker, Pid, ?AN_URL, Result} ->
+        {treewalker_worker, Pid, Result} ->
             Expectation(Result);
         Unexpected ->
             ct:fail("Unexpected message: ~p", [Unexpected])
