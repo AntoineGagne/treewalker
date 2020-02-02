@@ -6,7 +6,8 @@
 
 %% API
 -export([start_link/3,
-         start_crawler/1]).
+         start_crawler/1,
+         stop_crawler/1]).
 
 %% gen_statem callbacks
 -export([init/1,
@@ -41,6 +42,10 @@ start_link(Id, DispatcherId, Config) ->
 start_crawler(Id) ->
     gen_statem:cast(?VIA_GPROC(Id), start).
 
+-spec stop_crawler(id()) -> ok.
+stop_crawler(Id) ->
+    gen_statem:cast(?VIA_GPROC(Id), stop).
+
 %%%===================================================================
 %%% gen_statem callbacks
 %%%===================================================================
@@ -67,6 +72,11 @@ handle_event(cast, start, _State, Data) ->
     ?LOG_INFO(#{what => crawler_start, status => start}),
     NewData = Data#data{requests_by_ids = #{}},
     {next_state, started, NewData, {next_event, internal, fetch_robots}};
+
+handle_event(cast, stop, _State, Data) ->
+    ?LOG_INFO(#{what => crawler_start, status => start}),
+    NewData = Data#data{requests_by_ids = #{}},
+    {next_state, stopped, NewData};
 
 handle_event(cast, _Message, _State, _Data) ->
     keep_state_and_data;

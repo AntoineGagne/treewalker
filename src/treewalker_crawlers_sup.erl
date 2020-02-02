@@ -5,6 +5,7 @@
 %% API
 -export([start_link/0,
          start_crawler/1,
+         stop_crawler/1,
          add_crawler/2]).
 
 %% Supervisor callbacks
@@ -31,6 +32,10 @@ add_crawler(Name, Custom) ->
 -spec start_crawler(term()) -> ok.
 start_crawler(Name) ->
     treewalker_crawler_sup:start_crawler(Name).
+
+-spec stop_crawler(term()) -> ok.
+stop_crawler(Name) ->
+    treewalker_crawler_sup:stop_crawler(Name).
 
 %%====================================================================
 %% Supervisor callbacks
