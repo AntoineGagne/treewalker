@@ -124,10 +124,20 @@ walk(Content, Ref, Robots, Data=#data{config = Config}) ->
     end.
 
 maybe_walk({ok, Links}, Depth, Robots, Data=#data{config = Config}) ->
-    Filter = filter(Data#data.config, Robots),
+    Filter = filter(Config, Robots),
     Filtered = lists:filter(Filter, Links),
     Normalize = normalize_relative_url(Config),
-    lists:foldl(fun (Url, Acc) -> crawl(Normalize(Url), Depth + 1, Acc) end, Data, Filtered);
+    Crawl = fun (Url, Acc) ->
+                    case Normalize(Url) of
+                        {ok, Normalized} ->
+                            crawl(Normalized, Depth + 1, Acc);
+                        Error={error, _} ->
+                            ?LOG_WARNING(#{what => walk, status => in_progress,
+                                           result => skipping, url => Url, reason => Error}),
+                            Acc
+                    end
+            end,
+    lists:foldl(Crawl, Data, Filtered);
 maybe_walk(Error={error, _}, _Depth, _Robots, Data) ->
     ?LOG_WARNING(#{what => walk, status => done, result => error, reason => Error}),
     Data.
@@ -137,9 +147,13 @@ normalize_relative_url(Config) ->
     UriMap = uri_string:parse(Url),
     Updated = UriMap#{path => <<>>},
     fun (Other) ->
-            OtherUriMap = uri_string:parse(Other),
-            Merged = maps:merge(Updated, OtherUriMap),
-            uri_string:recompose(Merged)
+            case uri_string:parse(Other) of
+                {error, E, I} ->
+                    {error, {E, I}};
+                OtherUriMap ->
+                    Merged = maps:merge(Updated, OtherUriMap),
+                    {ok, uri_string:recompose(Merged)}
+            end
     end.
 
 crawl(Url, Depth, Data=#data{requests_by_ids = RequestsByIds}) ->
