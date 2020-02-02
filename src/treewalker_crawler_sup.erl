@@ -3,7 +3,8 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/3]).
+-export([start_link/3,
+         start_crawler/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -25,6 +26,11 @@
 -spec start_link(term(), term(), map()) -> {ok, pid()} | ignore | {error, term()}.
 start_link(Name, Id, Options) ->
     supervisor:start_link(?VIA_GPROC(Name), ?MODULE, [Id, Options]).
+
+-spec start_crawler(term()) -> ok.
+start_crawler(Name) ->
+    Id = ?CRAWLER_ID(Name),
+    treewalker_crawler:start_crawler(Id).
 
 %%====================================================================
 %% Supervisor callbacks

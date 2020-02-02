@@ -4,6 +4,7 @@
 
 %% API
 -export([start_link/0,
+         start_crawler/1,
          add_crawler/2]).
 
 %% Supervisor callbacks
@@ -26,6 +27,10 @@ start_link() ->
 add_crawler(Name, Custom) ->
     Config = compute_config(Custom),
     supervisor:start_child(?MODULE, [?SUP_ID(Name), Name, Config]).
+
+-spec start_crawler(term()) -> ok.
+start_crawler(Name) ->
+    treewalker_crawler_sup:start_crawler(Name).
 
 %%====================================================================
 %% Supervisor callbacks
