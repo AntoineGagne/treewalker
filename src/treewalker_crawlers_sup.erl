@@ -4,7 +4,7 @@
 
 %% API
 -export([start_link/0,
-         start_crawler/2]).
+         add_crawler/2]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -22,8 +22,8 @@
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
--spec start_crawler(term(), map()) -> {ok, child()} | {ok, child(), term()} | {error, term()}.
-start_crawler(Name, Custom) ->
+-spec add_crawler(term(), map()) -> {ok, child()} | {ok, child(), term()} | {error, term()}.
+add_crawler(Name, Custom) ->
     Config = compute_config(Custom),
     supervisor:start_child(?MODULE, [?SUP_ID(Name), Name, Config]).
 
