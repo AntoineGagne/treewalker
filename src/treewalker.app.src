@@ -5,7 +5,12 @@
   {mod, {treewalker_app, []}},
   {applications,
    [kernel,
-    stdlib
+    stdlib,
+    robots,
+    ecureuil,
+    hackney,
+    backoff,
+    gproc
    ]},
   {env,[]},
   {modules, []},

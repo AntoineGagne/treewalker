@@ -1,8 +1,3 @@
-%%%-------------------------------------------------------------------
-%% @doc treewalker top level supervisor.
-%% @end
-%%%-------------------------------------------------------------------
-
 -module(treewalker_sup).
 
 -behaviour(supervisor).
@@ -11,25 +6,25 @@
 
 -export([init/1]).
 
--define(SERVER, ?MODULE).
+%%%===================================================================
+%%% API
+%%%===================================================================
 
+-spec start_link() -> {ok, pid()} | ignore | {error, term()}.
 start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-%% sup_flags() = #{strategy => strategy(),         % optional
-%%                 intensity => non_neg_integer(), % optional
-%%                 period => pos_integer()}        % optional
-%% child_spec() = #{id => child_id(),       % mandatory
-%%                  start => mfargs(),      % mandatory
-%%                  restart => restart(),   % optional
-%%                  shutdown => shutdown(), % optional
-%%                  type => worker(),       % optional
-%%                  modules => modules()}   % optional
+%%====================================================================
+%% Supervisor callbacks
+%%====================================================================
+
 init([]) ->
-    SupFlags = #{strategy => one_for_all,
-                 intensity => 0,
-                 period => 1},
-    ChildSpecs = [],
-    {ok, {SupFlags, ChildSpecs}}.
-
-%% internal functions
+    {ok, {#{strategy => one_for_all,
+            intensity => 0,
+            period => 1},
+          [#{id => treewalker_crawlers_sup,
+             start => {treewalker_crawlers_sup, start_link, []},
+             restart => permanent,
+             shutdown => 5000,
+             type => worker,
+             modules => [treewalker_crawlers_sup]}]}}.
