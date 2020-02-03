@@ -137,4 +137,4 @@ fetcher_options(Options, Config) ->
 %%%===================================================================
 
 valid_keys() ->
-    [scraper, scraper_options, fetcher, fetcher_options, url, link_filter, max_depth].
+    [scraper, scraper_options, fetcher, fetcher_options, link_filter, max_depth].
