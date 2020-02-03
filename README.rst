@@ -26,6 +26,17 @@ A web crawler in Erlang that respects ``robots.txt``.
 Installation
 ============
 
+This library is available on `hex.pm <https://hex.pm/packages/treewalker>`_.
+To install this library, simply add the following lines to your
+``rebar.config``:
+
+.. code-block:: erlang
+
+    {treewalker, "0.1.0"}
+
+Keep in mind that this library is not yet ready for production use since it is
+missing many core features such as rate limiting.
+
 Development
 ===========
 
