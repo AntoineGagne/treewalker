@@ -16,6 +16,7 @@
          terminate/3]).
 
 -record(data, {config :: config(),
+               retry_timeout :: pos_integer(),
                visited_pages = sets:new() :: sets:set(url()),
                requests_by_ids = #{} :: requests_by_ids(),
                dispatcher_id :: dispatcher_id()}).
@@ -60,7 +61,10 @@ callback_mode() ->
     [handle_event_function].
 
 init([DispatcherId, Config]) ->
-    {ok, stopped, #data{config = Config, dispatcher_id = DispatcherId}}.
+    RetryTimeout = application:get_env(treewalker, retry_interval, ?RETRY_TIMEOUT),
+    {ok, stopped, #data{config = Config,
+                        dispatcher_id = DispatcherId,
+                        retry_timeout = RetryTimeout}}.
 
 handle_event(internal, fetch_robots, started, Data=#data{config = Config}) ->
     Url = treewalker_crawler_config:url(Config),
@@ -199,7 +203,8 @@ filter(#data{config = Config, visited_pages = VisitedPages}, Robots) ->
     UserAgent = treewalker_crawler_config:user_agent(Config),
     fun (Url) ->
             Filtered = LinkFilter:filter(Url),
-            Allowed = robots:is_allowed(UserAgent, Url, Robots),
+            #{path := Path} = uri_string:parse(Url),
+            Allowed = robots:is_allowed(UserAgent, Path, Robots),
             Visited = sets:is_element(Url, VisitedPages),
             Filtered andalso Allowed andalso not Visited
     end.
@@ -213,7 +218,7 @@ try_fetch_robots(Url, Data=#data{config = Config}) ->
             try_parse_robots(Code, Body, Data);
         Error={error, _} ->
             ?LOG_ERROR(#{what => robots_fetch, status => done, result => error, reason => Error}),
-            {keep_state_and_data, {{timeout, retry}, ?RETRY_TIMEOUT, retry}}
+            {keep_state_and_data, {{timeout, retry}, Data#data.retry_timeout, retry}}
     end.
 
 try_parse_robots(Code, Body, Data) ->
@@ -222,5 +227,5 @@ try_parse_robots(Code, Body, Data) ->
             {next_state, {crawling, Robots}, Data, {next_event, internal, crawl}};
         Error={error, _} ->
             ?LOG_ERROR(#{what => robots_fetch, status => done, result => error, reason => Error}),
-            {keep_state_and_data, {{timeout, retry}, ?RETRY_TIMEOUT, retry}}
+            {keep_state_and_data, {{timeout, retry}, Data#data.retry_timeout, retry}}
     end.
