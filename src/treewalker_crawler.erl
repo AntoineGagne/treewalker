@@ -16,17 +16,23 @@
          terminate/3]).
 
 -record(data, {config :: config(),
+               visited_pages = sets:new() :: sets:set(url()),
                requests_by_ids = #{} :: requests_by_ids(),
                dispatcher_id :: dispatcher_id()}).
 
 -define(VIA_GPROC(Id), {via, gproc, {n, l, Id}}).
 
 -type config() :: treewalker_crawler_config:config().
--type requests_by_ids() :: #{reference() := {url(), depth()}}.
+-type requests_by_ids() :: #{request_id() := {url(), depth()}}.
 -type depth() :: treewalker_crawler_config:depth().
 -type id() :: treewalker_crawler_sup:crawler_id().
 -type url() :: treewalker_page:url().
+-type request_id() :: reference().
 -type dispatcher_id() :: treewalker_crawler_sup:dispatcher_id().
+-type agent_rules() :: robots:agent_rules().
+-type either(Left, Right) :: {ok, Left} | {error, Right}.
+
+-type data() :: #data{}.
 
 -define(RETRY_TIMEOUT, 5000).
 
@@ -75,7 +81,7 @@ handle_event(cast, start, _State, Data) ->
 
 handle_event(cast, stop, _State, Data) ->
     ?LOG_INFO(#{what => crawler_start, status => start}),
-    NewData = Data#data{requests_by_ids = #{}},
+    NewData = Data#data{requests_by_ids = #{}, visited_pages = sets:new()},
     {next_state, stopped, NewData};
 
 handle_event(cast, _Message, _State, _Data) ->
@@ -117,6 +123,7 @@ terminate(_Reason, _State, _Data) ->
 %%% Internal functions
 %%%===================================================================
 
+-spec walk(binary(), request_id(), agent_rules(), data()) -> data().
 walk(Content, Ref, Robots, Data=#data{config = Config}) ->
     MaxDepth = treewalker_crawler_config:max_depth(Config),
     case maps:take(Ref, Data#data.requests_by_ids) of
@@ -124,35 +131,55 @@ walk(Content, Ref, Robots, Data=#data{config = Config}) ->
             Scraper = treewalker_crawler_config:scraper(Config),
             Options = treewalker_crawler_config:scraper_options(Config),
             Result = Scraper:scrap_links(Url, Content, Options),
-            maybe_walk(Result, Depth, Robots, Data#data{requests_by_ids = RequestsByIds});
+            VisitedPages = sets:add_element(Url, Data#data.visited_pages),
+            UpdatedData = Data#data{requests_by_ids = RequestsByIds, visited_pages = VisitedPages},
+            maybe_walk(Result, Depth, Robots, UpdatedData);
         {{Url, Depth}, RequestsByIds} ->
             ?LOG_INFO(#{what => walk, status => done, reason => max_depth_reached, url => Url,
                         max_depth => MaxDepth, depth => Depth}),
-            Data#data{requests_by_ids = RequestsByIds};
+            VisitedPages = sets:add_element(Url, Data#data.visited_pages),
+            Data#data{requests_by_ids = RequestsByIds, visited_pages = VisitedPages};
         error ->
             Data
     end.
 
-maybe_walk({ok, Links}, Depth, Robots, Data=#data{config = Config}) ->
-    Filter = filter(Config, Robots),
-    Filtered = lists:filter(Filter, Links),
-    Normalize = normalize_relative_url(Config),
-    Crawl = fun (Url, Acc) ->
-                    case Normalize(Url) of
-                        {ok, Normalized} ->
-                            crawl(Normalized, Depth + 1, Acc);
-                        Error={error, _} ->
-                            ?LOG_WARNING(#{what => walk, status => in_progress,
-                                           result => skipping, url => Url, reason => Error}),
-                            Acc
-                    end
-            end,
-    lists:foldl(Crawl, Data, Filtered);
+-spec maybe_walk(either([url()], term()), depth(), agent_rules(), data()) -> data().
+maybe_walk({ok, Links}, Depth, Robots, Data) ->
+    Filter = filter_link(Data, Robots),
+    Filtered = lists:filtermap(Filter, Links),
+    lists:foldl(fun (Url, Acc) -> crawl(Url, Depth + 1, Acc) end, Data, Filtered);
 maybe_walk(Error={error, _}, _Depth, _Robots, Data) ->
     ?LOG_WARNING(#{what => walk, status => done, result => error, reason => Error}),
     Data.
 
-normalize_relative_url(Config) ->
+-spec crawl(url(), depth(), data()) -> data().
+crawl(Url, Depth, Data=#data{requests_by_ids = RequestsByIds}) ->
+    Ref = treewalker_dispatcher:request(Data#data.dispatcher_id, Url),
+    Data#data{requests_by_ids = RequestsByIds#{Ref => {Url, Depth}}}.
+
+-spec filter_link(data(), agent_rules()) -> fun ((url()) -> {true, url()} | false).
+filter_link(Data, Robots) ->
+    Filter = filter(Data, Robots),
+    Normalize = normalize_relative_url(Data),
+    fun (Url) ->
+            case Normalize(Url) of
+                {ok, Normalized} ->
+                    case Filter(Url) of
+                        true ->
+                            {true, Normalized};
+                        false ->
+                            false
+                    end;
+                Error={error, _} ->
+                    ?LOG_WARNING(#{what => walk, status => in_progress,
+                                   result => skipping, url => Url, reason => Error}),
+                    false
+            end
+    end.
+
+
+-spec normalize_relative_url(data()) -> fun ((url()) -> either(url(), term())).
+normalize_relative_url(#data{config = Config}) ->
     Url = treewalker_crawler_config:url(Config),
     UriMap = uri_string:parse(Url),
     Updated = UriMap#{path => <<>>},
@@ -166,14 +193,16 @@ normalize_relative_url(Config) ->
             end
     end.
 
-crawl(Url, Depth, Data=#data{requests_by_ids = RequestsByIds}) ->
-    Ref = treewalker_dispatcher:request(Data#data.dispatcher_id, Url),
-    Data#data{requests_by_ids = RequestsByIds#{Ref => {Url, Depth}}}.
-
-filter(Config, Robots) ->
+-spec filter(data(), agent_rules()) -> fun ((url()) -> boolean()).
+filter(#data{config = Config, visited_pages = VisitedPages}, Robots) ->
     LinkFilter = treewalker_crawler_config:link_filter(Config),
     UserAgent = treewalker_crawler_config:user_agent(Config),
-    fun (Url) -> LinkFilter:filter(Url) andalso robots:is_allowed(UserAgent, Url, Robots) end.
+    fun (Url) ->
+            Filtered = LinkFilter:filter(Url),
+            Allowed = robots:is_allowed(UserAgent, Url, Robots),
+            Visited = sets:is_element(Url, VisitedPages),
+            Filtered andalso Allowed andalso not Visited
+    end.
 
 try_fetch_robots(Url, Data=#data{config = Config}) ->
     Fetcher = treewalker_crawler_config:fetcher(Config),
