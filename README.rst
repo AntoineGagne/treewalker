@@ -32,7 +32,7 @@ To install this library, simply add the following lines to your
 
 .. code-block:: erlang
 
-    {treewalker, "0.1.0"}
+    {treewalker, "0.1.1"}
 
 Keep in mind that this library is not yet ready for production use since it is
 missing many core features such as rate limiting.
