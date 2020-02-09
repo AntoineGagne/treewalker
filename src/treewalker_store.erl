@@ -6,6 +6,9 @@
 -type content() :: treewalker_scraper:content().
 -type options() :: term().
 
+-export_type([content/0,
+              options/0]).
+
 %%%===================================================================
 %%% Callbacks
 %%%===================================================================
