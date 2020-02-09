@@ -13,6 +13,10 @@
          url/2,
          scraper/1,
          scraper/2,
+         store/1,
+         store/2,
+         store_options/1,
+         store_options/2,
          scraper_options/1,
          scraper_options/2,
          fetcher/1,
@@ -23,6 +27,8 @@
 -type depth() :: non_neg_integer().
 -type scraper() :: module().
 -type scraper_options() :: treewalker_scraper:options().
+-type store() :: module().
+-type store_options() :: treewalker_store:options().
 -type fetcher() :: module().
 -type fetcher_options() :: treewalker_fetcher:options().
 -type link_filter() :: module().
@@ -31,6 +37,8 @@
 
 -opaque config() :: #{scraper := scraper(),
                       scraper_options := scraper_options(),
+                      store := store(),
+                      store_options := store_options(),
                       fetcher := fetcher(),
                       fetcher_options := fetcher_options(),
                       url := url(),
@@ -57,6 +65,8 @@ init() ->
       url => <<>>,
       scraper => treewalker_scraper,
       scraper_options => [],
+      store => treewalker_store,
+      store_options => [],
       fetcher => treewalker_fetcher,
       fetcher_options => [],
       user_agent => <<>>,
@@ -132,9 +142,33 @@ fetcher_options(#{fetcher_options := ScrappingOptions}) ->
 fetcher_options(Options, Config) ->
     Config#{fetcher_options := Options}.
 
+-spec store(config()) -> store().
+store(#{store := Store}) ->
+    Store.
+
+-spec store(store(), config()) -> config().
+store(Store, Config) ->
+    Config#{store := Store}.
+
+-spec store_options(config()) -> store_options().
+store_options(#{store_options := StoreOptions}) ->
+    StoreOptions.
+
+-spec store_options(store_options(), config()) -> config().
+store_options(StoreOptions, Config) ->
+    Config#{store_options := StoreOptions}.
+
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 
 valid_keys() ->
-    [scraper, scraper_options, fetcher, fetcher_options, link_filter, max_depth].
+    [scraper,
+     scraper_options,
+     fetcher,
+     fetcher_options,
+     link_filter,
+     max_depth,
+     url,
+     store,
+     store_options].

@@ -132,11 +132,12 @@ walk(Content, Ref, Robots, Data=#data{config = Config}) ->
     MaxDepth = treewalker_crawler_config:max_depth(Config),
     case maps:take(Ref, Data#data.requests_by_ids) of
         {{Url, Depth}, RequestsByIds} when Depth =< MaxDepth ->
+            ok = try_store(Url, Content, Config),
+            VisitedPages = sets:add_element(Url, Data#data.visited_pages),
+            UpdatedData = Data#data{requests_by_ids = RequestsByIds, visited_pages = VisitedPages},
             Scraper = treewalker_crawler_config:scraper(Config),
             Options = treewalker_crawler_config:scraper_options(Config),
             Result = Scraper:scrap_links(Url, Content, Options),
-            VisitedPages = sets:add_element(Url, Data#data.visited_pages),
-            UpdatedData = Data#data{requests_by_ids = RequestsByIds, visited_pages = VisitedPages},
             maybe_walk(Result, Depth, Robots, UpdatedData);
         {{Url, Depth}, RequestsByIds} ->
             ?LOG_INFO(#{what => walk, status => done, reason => max_depth_reached, url => Url,
@@ -145,6 +146,23 @@ walk(Content, Ref, Robots, Data=#data{config = Config}) ->
             Data#data{requests_by_ids = RequestsByIds, visited_pages = VisitedPages};
         error ->
             Data
+    end.
+
+-spec try_store(url(), treewalker_scraper:content(), config()) -> ok.
+try_store(Url, Content, Config) ->
+    Scraper = treewalker_crawler_config:scraper(Config),
+    Options = treewalker_crawler_config:scraper_options(Config),
+    ?LOG_DEBUG(#{what => store, status => start, url => Url}),
+    case Scraper:scrap(Url, Content, Options) of
+        {ok, Scraped} ->
+            ?LOG_DEBUG(#{what => store, url => Url, status => done, result => ok}),
+            Store = treewalker_crawler_config:store(Config),
+            StoreOptions = treewalker_crawler_config:store_options(Config),
+            Store:store(Scraped, StoreOptions);
+        Error={error, _} ->
+            ?LOG_ERROR(#{what => store, url => Url, status => done, result => error,
+                         reason => Error}),
+            ok
     end.
 
 -spec maybe_walk(either([url()], term()), depth(), agent_rules(), data()) -> data().
