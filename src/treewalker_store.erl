@@ -3,23 +3,22 @@
 %% API
 -export([store/2]).
 
--type content() :: treewalker_scraper:content().
 -type options() :: term().
+-type page() :: treewalker_page:page().
 
--export_type([content/0,
-              options/0]).
+-export_type([options/0]).
 
 %%%===================================================================
 %%% Callbacks
 %%%===================================================================
 
--callback store(ScrapedContent :: content(), Options :: options()) -> ok.
+-callback store(ScrapedPage :: page(), Options :: options()) -> ok.
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
--spec store(ScrapedContent :: content(), Options :: options()) -> ok.
+-spec store(ScrapedPage :: page(), Options :: options()) -> ok.
 store(_Content, _Options) ->
     ok.
 

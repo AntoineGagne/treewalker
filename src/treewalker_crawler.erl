@@ -148,7 +148,7 @@ walk(Content, Ref, Robots, Data=#data{config = Config}) ->
             Data
     end.
 
--spec try_store(url(), treewalker_scraper:content(), config()) -> ok.
+-spec try_store(url(), treewalker_scraper:page_data(), config()) -> ok.
 try_store(Url, Content, Config) ->
     Scraper = treewalker_crawler_config:scraper(Config),
     Options = treewalker_crawler_config:scraper_options(Config),
@@ -156,9 +156,10 @@ try_store(Url, Content, Config) ->
     case Scraper:scrap(Url, Content, Options) of
         {ok, Scraped} ->
             ?LOG_DEBUG(#{what => store, url => Url, status => done, result => ok}),
+            Page = page(Url, Scraped, Config),
             Store = treewalker_crawler_config:store(Config),
             StoreOptions = treewalker_crawler_config:store_options(Config),
-            Store:store(Scraped, StoreOptions);
+            Store:store(Page, StoreOptions);
         Error={error, _} ->
             ?LOG_ERROR(#{what => store, url => Url, status => done, result => error,
                          reason => Error}),
@@ -198,7 +199,6 @@ filter_link(Data, Robots) ->
                     false
             end
     end.
-
 
 -spec normalize_relative_url(data()) -> fun ((url()) -> either(url(), term())).
 normalize_relative_url(#data{config = Config}) ->
@@ -247,3 +247,11 @@ try_parse_robots(Code, Body, Data) ->
             ?LOG_ERROR(#{what => robots_fetch, status => done, result => error, reason => Error}),
             {keep_state_and_data, {{timeout, retry}, Data#data.retry_timeout, retry}}
     end.
+
+-spec page(url(), treewalker_page:content(), config()) -> treewalker_page:page().
+page(Url, ScrapedContent, Config) ->
+    Page = treewalker_page:init(),
+    UserAgent = treewalker_crawler_config:user_agent(Config),
+    WithUrl = treewalker_page:url(Url, Page),
+    WithContent = treewalker_page:content(ScrapedContent, WithUrl),
+    treewalker_page:name(UserAgent, WithContent).
