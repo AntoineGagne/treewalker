@@ -204,16 +204,29 @@ filter_link(Data, Robots) ->
 normalize_relative_url(#data{config = Config}) ->
     Url = treewalker_crawler_config:url(Config),
     UriMap = uri_string:parse(Url),
-    Updated = UriMap#{path => <<>>},
+    Updated = UriMap#{path => <<"/">>},
     fun (Other) ->
             case uri_string:parse(Other) of
                 {error, E, I} ->
                     {error, {E, I}};
                 OtherUriMap ->
-                    Merged = maps:merge(Updated, OtherUriMap),
-                    {ok, uri_string:recompose(Merged)}
+                    Merged = merge_urls(Updated, OtherUriMap),
+                    {ok, Merged}
             end
     end.
+
+-spec merge_urls(uri_string:uri_map(), uri_string:uri_map()) -> uri_string:uri_string().
+merge_urls(Url, Other) ->
+    Merged = maps:merge(Url, Other),
+    Fixed = fix_path(Merged),
+    Normalized = uri_string:normalize(Fixed, [return_map]),
+    uri_string:recompose(Normalized).
+
+-spec fix_path(uri_string:uri_map()) -> uri_string:uri_map().
+fix_path(Uri=#{path := <<$/, _/binary>>}) ->
+    Uri;
+fix_path(Uri=#{path := Path}) ->
+    Uri#{path := <<$/, Path/binary>>}.
 
 -spec filter(data(), agent_rules()) -> fun ((url()) -> boolean()).
 filter(#data{config = Config, visited_pages = VisitedPages}, Robots) ->
