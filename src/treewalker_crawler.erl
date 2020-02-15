@@ -187,7 +187,7 @@ filter_link(Data, Robots) ->
     fun (Url) ->
             case Normalize(Url) of
                 {ok, Normalized} ->
-                    case Filter(Url) of
+                    case Filter(Normalized) of
                         true ->
                             {true, Normalized};
                         false ->
