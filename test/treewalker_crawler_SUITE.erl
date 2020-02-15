@@ -8,6 +8,7 @@
 
 -define(A_CODE, 200).
 -define(A_BODY, <<"a body">>).
+-define(SOME_CONTENT, <<"content">>).
 -define(SOME_AGENT_RULES, #{}).
 -define(AN_ID, <<"an id">>).
 -define(TIMEOUT, 1000).
@@ -46,6 +47,7 @@ init_per_testcase(_Name, Config) ->
     meck:expect(treewalker_dispatcher, request, fun (_, _) -> RequestId end),
     meck:expect(treewalker_fetcher, request, fun (_, _, _) -> {ok, {?A_CODE, ?A_BODY}} end),
     meck:expect(treewalker_scraper, scrap_links, fun (_, _, _) -> {ok, [?AN_URL]} end),
+    meck:expect(treewalker_scraper, scrap, fun (_, _, _) -> {ok, ?SOME_CONTENT} end),
     meck:expect(treewalker_link_filter, filter, fun (_) -> true end),
     meck:expect(robots, parse, fun (_, _) -> {ok, ?SOME_AGENT_RULES} end),
     meck:expect(robots, is_allowed, fun (_, _, _) -> true end),

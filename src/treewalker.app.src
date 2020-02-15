@@ -1,6 +1,6 @@
 {application, treewalker,
  [{description, "A web crawler that respects `robots.txt`."},
-  {vsn, "0.1.1"},
+  {vsn, "0.1.0"},
   {registered, []},
   {mod, {treewalker_app, []}},
   {applications,
@@ -12,7 +12,8 @@
     backoff,
     gproc
    ]},
-  {env,[]},
+  {env, [
+        ]},
   {modules, []},
 
   {licenses, ["BSD3"]},

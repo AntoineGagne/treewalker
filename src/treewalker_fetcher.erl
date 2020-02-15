@@ -23,22 +23,16 @@
 %%% API
 %%%===================================================================
 
--spec request(url(), user_agent(), options()) -> {ok, {status_code(), binary()}} | {error, term()}.
+-spec request(url(), user_agent(), options()) ->
+    {ok, {status_code(), binary()}} | {error, term()}.
 request(Url, UserAgent, Options) ->
     ?LOG_DEBUG(#{what => request, url => Url, user_agent => UserAgent, status => start}),
     Headers = [{<<"User-Agent">>, UserAgent}],
-    case hackney:request(get, Url, Headers, Options, []) of
-        {ok, Code, _, Ref} ->
+    case hackney:request(get, Url, Headers, [], [with_body | Options]) of
+        {ok, Code, _, Body} ->
             ?LOG_DEBUG(#{what => request, url => Url, user_agent => UserAgent, status => done,
                          status_code => Code}),
-            case hackney:body(Ref) of
-                {ok, Body} ->
-                    {ok, {Code, Body}};
-                Error={error, _} ->
-                    ?LOG_DEBUG(#{what => request, url => Url, user_agent => UserAgent,
-                                 status => done, result => error, reason => Error}),
-                    Error
-            end;
+            {ok, {Code, Body}};
         Error={error, _} ->
             ?LOG_DEBUG(#{what => request, url => Url, user_agent => UserAgent, status => done,
                          result => error, reason => Error}),

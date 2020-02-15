@@ -9,9 +9,8 @@
 -export([scrap/3,
          scrap_links/3]).
 
--export_type([options/0]).
-
--optional_callbacks([scrap_links/3]).
+-export_type([page_data/0,
+              options/0]).
 
 -type url() :: treewalker_page:url().
 -type page_data() :: binary().

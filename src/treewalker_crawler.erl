@@ -132,11 +132,12 @@ walk(Content, Ref, Robots, Data=#data{config = Config}) ->
     MaxDepth = treewalker_crawler_config:max_depth(Config),
     case maps:take(Ref, Data#data.requests_by_ids) of
         {{Url, Depth}, RequestsByIds} when Depth =< MaxDepth ->
+            ok = try_store(Url, Content, Config),
+            VisitedPages = sets:add_element(Url, Data#data.visited_pages),
+            UpdatedData = Data#data{requests_by_ids = RequestsByIds, visited_pages = VisitedPages},
             Scraper = treewalker_crawler_config:scraper(Config),
             Options = treewalker_crawler_config:scraper_options(Config),
             Result = Scraper:scrap_links(Url, Content, Options),
-            VisitedPages = sets:add_element(Url, Data#data.visited_pages),
-            UpdatedData = Data#data{requests_by_ids = RequestsByIds, visited_pages = VisitedPages},
             maybe_walk(Result, Depth, Robots, UpdatedData);
         {{Url, Depth}, RequestsByIds} ->
             ?LOG_INFO(#{what => walk, status => done, reason => max_depth_reached, url => Url,
@@ -145,6 +146,24 @@ walk(Content, Ref, Robots, Data=#data{config = Config}) ->
             Data#data{requests_by_ids = RequestsByIds, visited_pages = VisitedPages};
         error ->
             Data
+    end.
+
+-spec try_store(url(), treewalker_scraper:page_data(), config()) -> ok.
+try_store(Url, Content, Config) ->
+    Scraper = treewalker_crawler_config:scraper(Config),
+    Options = treewalker_crawler_config:scraper_options(Config),
+    ?LOG_DEBUG(#{what => store, status => start, url => Url}),
+    case Scraper:scrap(Url, Content, Options) of
+        {ok, Scraped} ->
+            ?LOG_DEBUG(#{what => store, url => Url, status => done, result => ok}),
+            Page = page(Url, Scraped, Config),
+            Store = treewalker_crawler_config:store(Config),
+            StoreOptions = treewalker_crawler_config:store_options(Config),
+            Store:store(Page, StoreOptions);
+        Error={error, _} ->
+            ?LOG_ERROR(#{what => store, url => Url, status => done, result => error,
+                         reason => Error}),
+            ok
     end.
 
 -spec maybe_walk(either([url()], term()), depth(), agent_rules(), data()) -> data().
@@ -168,7 +187,7 @@ filter_link(Data, Robots) ->
     fun (Url) ->
             case Normalize(Url) of
                 {ok, Normalized} ->
-                    case Filter(Url) of
+                    case Filter(Normalized) of
                         true ->
                             {true, Normalized};
                         false ->
@@ -181,21 +200,33 @@ filter_link(Data, Robots) ->
             end
     end.
 
-
 -spec normalize_relative_url(data()) -> fun ((url()) -> either(url(), term())).
 normalize_relative_url(#data{config = Config}) ->
     Url = treewalker_crawler_config:url(Config),
     UriMap = uri_string:parse(Url),
-    Updated = UriMap#{path => <<>>},
+    Updated = UriMap#{path => <<"/">>},
     fun (Other) ->
             case uri_string:parse(Other) of
                 {error, E, I} ->
                     {error, {E, I}};
                 OtherUriMap ->
-                    Merged = maps:merge(Updated, OtherUriMap),
-                    {ok, uri_string:recompose(Merged)}
+                    Merged = merge_urls(Updated, OtherUriMap),
+                    {ok, Merged}
             end
     end.
+
+-spec merge_urls(uri_string:uri_map(), uri_string:uri_map()) -> uri_string:uri_string().
+merge_urls(Url, Other) ->
+    Merged = maps:merge(Url, Other),
+    Fixed = fix_path(Merged),
+    Normalized = uri_string:normalize(Fixed, [return_map]),
+    uri_string:recompose(Normalized).
+
+-spec fix_path(uri_string:uri_map()) -> uri_string:uri_map().
+fix_path(Uri=#{path := <<$/, _/binary>>}) ->
+    Uri;
+fix_path(Uri=#{path := Path}) ->
+    Uri#{path := <<$/, Path/binary>>}.
 
 -spec filter(data(), agent_rules()) -> fun ((url()) -> boolean()).
 filter(#data{config = Config, visited_pages = VisitedPages}, Robots) ->
@@ -229,3 +260,11 @@ try_parse_robots(Code, Body, Data) ->
             ?LOG_ERROR(#{what => robots_fetch, status => done, result => error, reason => Error}),
             {keep_state_and_data, {{timeout, retry}, Data#data.retry_timeout, retry}}
     end.
+
+-spec page(url(), treewalker_page:content(), config()) -> treewalker_page:page().
+page(Url, ScrapedContent, Config) ->
+    Page = treewalker_page:init(),
+    UserAgent = treewalker_crawler_config:user_agent(Config),
+    WithUrl = treewalker_page:url(Url, Page),
+    WithContent = treewalker_page:content(ScrapedContent, WithUrl),
+    treewalker_page:name(UserAgent, WithContent).
