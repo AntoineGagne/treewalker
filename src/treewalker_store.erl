@@ -19,7 +19,7 @@
 %%%===================================================================
 
 -spec store(ScrapedPage :: page(), Options :: options()) -> ok.
-store(_Content, _Options) ->
+store(_ScrapedPage, _Options) ->
     ok.
 
 %%%===================================================================
