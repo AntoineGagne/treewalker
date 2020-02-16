@@ -25,6 +25,7 @@ init_per_suite(Config) ->
 
     {ok, Applications} = application:ensure_all_started(gproc),
     meck:new(treewalker_worker, [no_link]),
+    meck:new(treewalker_rate_limit, [no_link]),
     [{applications, Applications} | Config].
 
 end_per_suite(Config) ->
@@ -34,6 +35,7 @@ end_per_suite(Config) ->
 
 init_per_testcase(_Name, Config) ->
     meck:reset(treewalker_worker),
+    meck:reset(treewalker_rate_limit),
     AConfig = treewalker_crawler_config:init(),
 
     {ok, Pid} = treewalker_dispatcher:start_link(?AN_ID, AConfig),
@@ -43,6 +45,7 @@ init_per_testcase(_Name, Config) ->
                         Pid ! {treewalker_worker, WorkerPid, {ok, ?A_BODY}},
                         {ok, WorkerPid}
                 end),
+    meck:expect(treewalker_rate_limit, delay, [{['_'], 100}]),
     Config.
 
 end_per_testcase(_Name, Config) ->

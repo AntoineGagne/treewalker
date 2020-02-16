@@ -18,15 +18,18 @@
 
 -record(state, {config :: config(),
                 retry_policy :: retry_policy(),
+                max_worker_delay :: pos_integer(),
                 max_concurrent_worker :: pos_integer(),
                 pending_requests = queue:new() :: queue:queue({reference(), pid(), url()}),
                 callers_by_workers_pids = #{} :: #{pid() := {reference(), pid()}}}).
 
 -define(VIA_GPROC(Id), {via, gproc, {n, l, Id}}).
+-define(MAX_WORKER_DELAY, 5).
 -define(MIN_RETRY_DELAY, 1000).
 -define(MAX_RETRY_DELAY, 5 * 60000).
 -define(MAX_RETRIES, 5).
 -define(MAX_CONCURRENT_WORKERS, 10).
+-define(MILLISECONDS_PER_SECOND, 1000).
 
 -type url() :: treewalker_page:url().
 -type retry_policy() :: treewalker_worker:retry_policy().
@@ -54,18 +57,20 @@ init([Config]) ->
     MinDelay = application:get_env(treewalker, min_retry_delay, ?MIN_RETRY_DELAY),
     MaxDelay = application:get_env(treewalker, max_retry_delay, ?MAX_RETRY_DELAY),
     MaxRetry = application:get_env(treewalker, max_retries, ?MAX_RETRIES),
+    MaxWorkerDelay = application:get_env(treewalker, max_worker_delay, ?MAX_WORKER_DELAY),
     MaxConcurrentWorker = application:get_env(treewalker,
                                               max_concurrent_worker,
                                               ?MAX_CONCURRENT_WORKERS),
     RetryPolicy = #retry_policy{max_retry = MaxRetry, min_delay = MinDelay, max_delay = MaxDelay},
     {ok, #state{config = Config,
+                max_worker_delay = MaxWorkerDelay,
                 retry_policy = RetryPolicy,
                 max_concurrent_worker = MaxConcurrentWorker}}.
 
 handle_call({request, Caller, Url}, _, State=#state{pending_requests = PendingRequests}) ->
     ?LOG_INFO(#{what => request_received, requester => Caller, status => queuing, url => Url}),
-    After = rand:uniform(5),
-    erlang:send_after(After * 1000, self(), start),
+    Delay = treewalker_rate_limit:delay(State#state.max_worker_delay),
+    erlang:send_after(Delay, self(), start),
     Ref = make_ref(),
     {reply, Ref, State#state{pending_requests = queue:in({Ref, Caller, Url}, PendingRequests)}};
 
@@ -86,14 +91,14 @@ handle_info(start, State) ->
 handle_info({treewalker_worker, Pid, Reason}, State) ->
     ?LOG_DEBUG(#{what => worker_response, pid => Pid}),
     UpdatedState = maybe_response_to_caller(Reason, Pid, State),
-    After = rand:uniform(5),
-    erlang:send_after(After * 1000, self(), start),
+    Delay = treewalker_rate_limit:delay(State#state.max_worker_delay),
+    erlang:send_after(Delay, self(), start),
     {noreply, UpdatedState};
 handle_info({'EXIT', Pid, Reason}, State) ->
     ?LOG_DEBUG(#{what => worker_exit, pid => Pid, reason => Reason}),
     UpdatedState = maybe_response_to_caller({error, Reason}, Pid, State),
-    After = rand:uniform(5),
-    erlang:send_after(After * 1000, self(), start),
+    Delay = treewalker_rate_limit:delay(State#state.max_worker_delay),
+    erlang:send_after(Delay, self(), start),
     {noreply, UpdatedState};
 
 handle_info(Message, State) ->
