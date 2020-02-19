@@ -1,8 +1,10 @@
+%%------------------------------------------------------------------------------
+%% @doc Scrap the page for useful data and links.
+%%
+%% @copyright 2020 Antoine Gagné
 %% @author Antoine Gagné <gagnantoine@gmail.com>
-%% @copyright 2019 Antoine Gagné
-%% @doc
-%% Scrap the page for useful data and links.
 %% @end
+%%------------------------------------------------------------------------------
 -module(treewalker_scraper).
 
 %% API

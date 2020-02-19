@@ -1,3 +1,10 @@
+%%------------------------------------------------------------------------------
+%% @doc Fetch webpages.
+%%
+%% @copyright 2020 Antoine Gagné
+%% @author Antoine Gagné <gagnantoine@gmail.com>
+%% @end
+%%------------------------------------------------------------------------------
 -module(treewalker_fetcher).
 
 -include_lib("kernel/include/logger.hrl").

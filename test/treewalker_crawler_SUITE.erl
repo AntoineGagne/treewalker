@@ -18,12 +18,15 @@ all() ->
     [
      retry_fetching_robots_policies_on_request_fail,
      retry_fetching_robots_policies_on_parsing_failure,
-     can_fetch_a_page
+     can_fetch_a_page,
+     skip_already_visited_urls,
+     can_handle_scrapping_errors
     ].
 
 init_per_suite(Config) ->
     application:set_env(treewalker, retry_interval, 100),
     {ok, Applications} = application:ensure_all_started(gproc),
+    meck:new(uri_string, [passthrough, no_link, unstick]),
     meck:new(treewalker_fetcher, [no_link]),
     meck:new(treewalker_link_filter, [no_link]),
     meck:new(treewalker_scraper, [no_link]),
@@ -42,9 +45,10 @@ init_per_testcase(_Name, Config) ->
     meck:reset(treewalker_scraper),
     meck:reset(treewalker_dispatcher),
     meck:reset(robots),
+    meck:reset(uri_string),
 
     RequestId = make_ref(),
-    meck:expect(treewalker_dispatcher, request, fun (_, _) -> RequestId end),
+    meck:expect(treewalker_dispatcher, request, fun (_, _) -> {ok, RequestId} end),
     meck:expect(treewalker_fetcher, request, fun (_, _, _) -> {ok, {?A_CODE, ?A_BODY}} end),
     meck:expect(treewalker_scraper, scrap_links, fun (_, _, _) -> {ok, [?AN_URL]} end),
     meck:expect(treewalker_scraper, scrap, fun (_, _, _) -> {ok, ?SOME_CONTENT} end),
@@ -81,6 +85,31 @@ retry_fetching_robots_policies_on_parsing_failure(_Config) ->
 can_fetch_a_page() ->
     [{doc, "Given a valid URL, when requesting URL, then returns response."}].
 can_fetch_a_page(Config) ->
+    CrawlerConfig = treewalker_crawler_config:init(),
+    RequestId = ?config(request_id, Config),
+    {ok, Pid} = treewalker_crawler:start_link(?AN_ID, ?AN_ID, CrawlerConfig),
+    ok = treewalker_crawler:start_crawler(?AN_ID),
+    meck:wait(robots, parse, ['_', '_'], ?TIMEOUT),
+
+    Pid ! {treewalker_dispatcher, RequestId, {ok, {?A_CODE, ?A_BODY}}},
+
+    meck:wait(treewalker_scraper, scrap_links, ['_', '_', '_'], ?TIMEOUT).
+
+skip_already_visited_urls() ->
+    [{doc, "Given a valid visited URL, when crawling, then skips URL."}].
+skip_already_visited_urls(_Config) ->
+    meck:expect(treewalker_dispatcher, request, fun (_, _) -> {error, an_error} end),
+    CrawlerConfig = treewalker_crawler_config:init(),
+    {ok, _} = treewalker_crawler:start_link(?AN_ID, ?AN_ID, CrawlerConfig),
+    ok = treewalker_crawler:start_crawler(?AN_ID),
+    meck:wait(robots, parse, ['_', '_'], ?TIMEOUT),
+
+    meck:wait(treewalker_dispatcher, request, ['_', '_'], ?TIMEOUT).
+
+can_handle_scrapping_errors() ->
+    [{doc, "Given a scraping error, when crawling, then ignores the error."}].
+can_handle_scrapping_errors(Config) ->
+    meck:expect(treewalker_scraper, scrap, fun (_, _, _) -> {error, an_error} end),
     CrawlerConfig = treewalker_crawler_config:init(),
     RequestId = ?config(request_id, Config),
     {ok, Pid} = treewalker_crawler:start_link(?AN_ID, ?AN_ID, CrawlerConfig),

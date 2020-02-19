@@ -1,5 +1,27 @@
 %%------------------------------------------------------------------------------
-%% @doc Add and controls web crawlers.
+%% @doc This OTP application is used for crawling websites while respecting `robots.txt'.
+%%
+%% This module exposes some high level functions to be able to add new crawlers and start/stop them.
+%%
+%% While most of the configuration is per crawler, this application is also configurable globally
+%% via the following `sys.config' settings:
+%%
+%%  ```
+%%  {treewalker, [
+%%                %% The minimum delay to wait before retrying a failed request
+%%                {min_retry_delay, pos_integer()},
+%%                %% The maximum delay to wait before retrying a failed request
+%%                {max_retry_delay, pos_integer()},
+%%                %% The maximum amount of retries of a failed request
+%%                {max_retries, pos_integer()},
+%%                %% The maximum amount of delay before starting a request (in seconds)
+%%                {max_worker_delay, pos_integer()},
+%%                %% The maximum amount of concurrent workers making HTTP requests
+%%                {max_concurrent_worker, pos_integer()},
+%%                %% The user agent making the HTTP requests
+%%                {user_agent, binary()}]},
+%%  '''
+%%
 %% @copyright 2020 Antoine Gagné
 %% @author Antoine Gagné <gagnantoine@gmail.com>
 %% @end
@@ -13,6 +35,14 @@
          stop_crawler/1]).
 
 -type child() :: treewalker_crawlers_sup:child().
+-type options() :: #{scraper => module(),
+                     scraper_options => term(),
+                     fetcher => module(),
+                     fetcher_options => module(),
+                     max_depth => pos_integer(),
+                     store => module(),
+                     store_options => term(),
+                     link_filter => module()}.
 -type url() :: treewalker_page:url().
 
 %%%===================================================================
@@ -45,9 +75,17 @@ add_crawler(Name, Url) ->
 %%                      {@link treewalker_fetcher} behaviour.
 %%
 %% - `max_depth': The max depth that the crawler will crawl.
+%%
+%% - `store': Module implementing the {@link treewalker_store} behaviour.
+%%
+%% - `store_options': The options to pass to the module implementing the
+%%                    {@link treewalker_store} behaviour.
+%%
+%% - `link_filter': Module implementing the {@link treewalker_link_filter} behaviour.
 %% @end
 %%------------------------------------------------------------------------------
--spec add_crawler(term(), url(), map()) -> {ok, child()} | {ok, child(), term()} | {error, term()}.
+-spec add_crawler(term(), url(), options()) ->
+    {ok, child()} | {ok, child(), term()} | {error, term()}.
 add_crawler(Name, Url, Custom) ->
     treewalker_crawlers_sup:add_crawler(Name, Custom#{url => Url}).
 

@@ -17,7 +17,6 @@
 
 -record(data, {config :: config(),
                retry_timeout :: pos_integer(),
-               visited_pages = sets:new() :: sets:set(url()),
                requests_by_ids = #{} :: requests_by_ids(),
                dispatcher_id :: dispatcher_id()}).
 
@@ -85,7 +84,7 @@ handle_event(cast, start, _State, Data) ->
 
 handle_event(cast, stop, _State, Data) ->
     ?LOG_INFO(#{what => crawler_start, status => start}),
-    NewData = Data#data{requests_by_ids = #{}, visited_pages = sets:new()},
+    NewData = Data#data{requests_by_ids = #{}},
     {next_state, stopped, NewData};
 
 handle_event(cast, _Message, _State, _Data) ->
@@ -133,8 +132,7 @@ walk(Content, Ref, Robots, Data=#data{config = Config}) ->
     case maps:take(Ref, Data#data.requests_by_ids) of
         {{Url, Depth}, RequestsByIds} when Depth =< MaxDepth ->
             ok = try_store(Url, Content, Config),
-            VisitedPages = sets:add_element(Url, Data#data.visited_pages),
-            UpdatedData = Data#data{requests_by_ids = RequestsByIds, visited_pages = VisitedPages},
+            UpdatedData = Data#data{requests_by_ids = RequestsByIds},
             Scraper = treewalker_crawler_config:scraper(Config),
             Options = treewalker_crawler_config:scraper_options(Config),
             Result = Scraper:scrap_links(Url, Content, Options),
@@ -142,8 +140,7 @@ walk(Content, Ref, Robots, Data=#data{config = Config}) ->
         {{Url, Depth}, RequestsByIds} ->
             ?LOG_INFO(#{what => walk, status => done, reason => max_depth_reached, url => Url,
                         max_depth => MaxDepth, depth => Depth}),
-            VisitedPages = sets:add_element(Url, Data#data.visited_pages),
-            Data#data{requests_by_ids = RequestsByIds, visited_pages = VisitedPages};
+            Data#data{requests_by_ids = RequestsByIds};
         error ->
             Data
     end.
@@ -155,7 +152,6 @@ try_store(Url, Content, Config) ->
     ?LOG_DEBUG(#{what => store, status => start, url => Url}),
     case Scraper:scrap(Url, Content, Options) of
         {ok, Scraped} ->
-            ?LOG_DEBUG(#{what => store, url => Url, status => done, result => ok}),
             Page = page(Url, Scraped, Config),
             Store = treewalker_crawler_config:store(Config),
             StoreOptions = treewalker_crawler_config:store_options(Config),
@@ -177,8 +173,13 @@ maybe_walk(Error={error, _}, _Depth, _Robots, Data) ->
 
 -spec crawl(url(), depth(), data()) -> data().
 crawl(Url, Depth, Data=#data{requests_by_ids = RequestsByIds}) ->
-    Ref = treewalker_dispatcher:request(Data#data.dispatcher_id, Url),
-    Data#data{requests_by_ids = RequestsByIds#{Ref => {Url, Depth}}}.
+    case treewalker_dispatcher:request(Data#data.dispatcher_id, Url) of
+        Error={error, _} ->
+            ?LOG_DEBUG(#{what => crawl, status => skip, reason => Error}),
+            Data;
+        {ok, Ref} ->
+            Data#data{requests_by_ids = RequestsByIds#{Ref => {Url, Depth}}}
+    end.
 
 -spec filter_link(data(), agent_rules()) -> fun ((url()) -> {true, url()} | false).
 filter_link(Data, Robots) ->
@@ -229,15 +230,14 @@ fix_path(Uri=#{path := Path}) ->
     Uri#{path := <<$/, Path/binary>>}.
 
 -spec filter(data(), agent_rules()) -> fun ((url()) -> boolean()).
-filter(#data{config = Config, visited_pages = VisitedPages}, Robots) ->
+filter(#data{config = Config}, Robots) ->
     LinkFilter = treewalker_crawler_config:link_filter(Config),
     UserAgent = treewalker_crawler_config:user_agent(Config),
     fun (Url) ->
             Filtered = LinkFilter:filter(Url),
             #{path := Path} = uri_string:parse(Url),
             Allowed = robots:is_allowed(UserAgent, Path, Robots),
-            Visited = sets:is_element(Url, VisitedPages),
-            Filtered andalso Allowed andalso not Visited
+            Filtered andalso Allowed
     end.
 
 try_fetch_robots(Url, Data=#data{config = Config}) ->
