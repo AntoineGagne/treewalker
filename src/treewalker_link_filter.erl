@@ -1,8 +1,10 @@
+%%------------------------------------------------------------------------------
+%% @doc Filter URL and return whether or not they must be followed.
+%%
+%% @copyright 2020 Antoine Gagné
 %% @author Antoine Gagné <gagnantoine@gmail.com>
-%% @copyright 2019 Antoine Gagné
-%% @doc
-%% Filter URL and return whether or not they must be followed.
 %% @end
+%%------------------------------------------------------------------------------
 -module(treewalker_link_filter).
 
 %% API

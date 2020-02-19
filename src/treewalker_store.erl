@@ -1,3 +1,10 @@
+%%------------------------------------------------------------------------------
+%% @doc Store the scrapped page.
+%%
+%% @copyright 2020 Antoine Gagné
+%% @author Antoine Gagné <gagnantoine@gmail.com>
+%% @end
+%%------------------------------------------------------------------------------
 -module(treewalker_store).
 
 %% API
