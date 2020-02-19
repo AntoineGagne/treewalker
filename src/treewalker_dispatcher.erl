@@ -17,6 +17,7 @@
          terminate/2]).
 
 -record(state, {config :: config(),
+                visited_urls = sets:new() :: sets:set(url()),
                 retry_policy :: retry_policy(),
                 max_worker_delay :: pos_integer(),
                 max_concurrent_worker :: pos_integer(),
@@ -44,7 +45,7 @@
 start_link(Id, Config) ->
     gen_server:start_link(?VIA_GPROC(Id), ?MODULE, [Config], []).
 
--spec request(id(), url()) -> reference().
+-spec request(id(), url()) -> {ok, reference()} | {error, term()}.
 request(Id, Url) ->
     gen_server:call(?VIA_GPROC(Id), {request, self(), Url}).
 
@@ -67,12 +68,21 @@ init([Config]) ->
                 retry_policy = RetryPolicy,
                 max_concurrent_worker = MaxConcurrentWorker}}.
 
-handle_call({request, Caller, Url}, _, State=#state{pending_requests = PendingRequests}) ->
+handle_call({request, Caller, Url}, _, State=#state{pending_requests = PendingRequests,
+                                                    visited_urls = VisitedUrls}) ->
     ?LOG_INFO(#{what => request_received, requester => Caller, status => queuing, url => Url}),
-    Delay = treewalker_rate_limit:delay(State#state.max_worker_delay),
-    erlang:send_after(Delay, self(), start),
-    Ref = make_ref(),
-    {reply, Ref, State#state{pending_requests = queue:in({Ref, Caller, Url}, PendingRequests)}};
+    case sets:is_element(Url, VisitedUrls) of
+        true ->
+            {reply, {error, {already_present, Url}}, State};
+        false ->
+            Delay = treewalker_rate_limit:delay(State#state.max_worker_delay),
+            erlang:send_after(Delay, self(), start),
+            Ref = make_ref(),
+            NewRequest = {Ref, Caller, Url},
+            UpdatedState = State#state{pending_requests = queue:in(NewRequest, PendingRequests),
+                                       visited_urls = sets:add_element(Url, VisitedUrls)},
+            {reply, {ok, Ref}, UpdatedState}
+    end;
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
