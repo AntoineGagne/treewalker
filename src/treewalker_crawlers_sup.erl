@@ -5,6 +5,7 @@
 %% API
 -export([start_link/0,
          start_crawler/1,
+         remove_crawler/1,
          stop_crawler/1,
          add_crawler/2]).
 
@@ -30,6 +31,16 @@ start_link() ->
 add_crawler(Name, Custom) ->
     Config = compute_config(Custom),
     supervisor:start_child(?MODULE, [?SUP_ID(Name), Name, Config]).
+
+-spec remove_crawler(term()) -> ok | {error, not_found | simple_one_for_one}.
+remove_crawler(Name) ->
+    Id = ?SUP_ID(Name),
+    case gproc:where({n, l, Id}) of
+        undefined ->
+            {error, not_found};
+        Pid ->
+            supervisor:terminate_child(?MODULE, Pid)
+    end.
 
 -spec start_crawler(term()) -> ok.
 start_crawler(Name) ->

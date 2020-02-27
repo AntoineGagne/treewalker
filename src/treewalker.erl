@@ -31,6 +31,7 @@
 %% API
 -export([add_crawler/2,
          add_crawler/3,
+         remove_crawler/1,
          start_crawler/1,
          stop_crawler/1]).
 
@@ -57,6 +58,15 @@
 -spec add_crawler(term(), url()) -> {ok, child()} | {ok, child(), term()} | {error, term()}.
 add_crawler(Name, Url) ->
     treewalker_crawlers_sup:add_crawler(Name, #{url => Url}).
+
+%%------------------------------------------------------------------------------
+%% @doc
+%% Remove the specified crawler.
+%% @end
+%%------------------------------------------------------------------------------
+-spec remove_crawler(term()) -> ok.
+remove_crawler(Name) ->
+    treewalker_crawlers_sup:remove_crawler(Name).
 
 %%------------------------------------------------------------------------------
 %% @doc
