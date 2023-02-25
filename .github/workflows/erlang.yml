@@ -7,16 +7,25 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-20.04
+    runs-on: ${{matrix.os}}
     name: Erlang ${{matrix.otp}} / rebar ${{matrix.rebar3}}
     strategy:
       matrix:
-        otp:
-          - '25.2.1'
-          - '24.3.4'
-          - '23.3.4'
+        os: [ubuntu-20.04, ubuntu-22.04]
+        otp: ['25.2.1', '24.3.4', '23.3.4']
         rebar3:
           - '3.20.0'
+        include:
+          - os: ubuntu-22.04
+            otp: 25.2
+          - os: ubuntu-22.04
+            otp: 24.3
+          - os: ubuntu-20.04
+            otp: 23.3
+          - os: ubuntu-20.04
+            otp: 22.3
+          - os: ubuntu-20.04
+            otp: 21.3
     steps:
 
       - uses: actions/checkout@v2
