@@ -16,6 +16,6 @@
         ]},
   {modules, []},
 
-  {licenses, ["BSD3"]},
+  {licenses, ["BSD-3-Clause"]},
   {links, []}
  ]}.
