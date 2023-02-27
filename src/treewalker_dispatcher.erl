@@ -1,7 +1,7 @@
 -module(treewalker_dispatcher).
 
 -include_lib("kernel/include/logger.hrl").
--include_lib("src/treewalker.hrl").
+-include_lib("treewalker.hrl").
 
 -behaviour(gen_server).
 
