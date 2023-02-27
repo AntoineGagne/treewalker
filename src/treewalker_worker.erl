@@ -63,7 +63,7 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info({timeout, _Ref, retry}, State=#state{request = #request{retry_ref = _Ref}=Request}) ->
+handle_info({timeout, Ref, retry}, State=#state{request = #request{retry_ref = Ref}=Request}) ->
     Pid = spawn_link(Request#request.worker),
     {noreply, State#state{request = Request#request{pid = Pid}}};
 
