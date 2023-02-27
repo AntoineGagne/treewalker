@@ -44,7 +44,14 @@ jobs:
         run: rebar3 do clean, compile
 
       - name: Checks
-        run: rebar3 check
+        if: matrix.erlang < 25
+        working-directory: ${{ runner.temp }}/ci_runner_${{ matrix.template }}
+        run: rebar3 do clean, check
+
+      - name: Checks (OTP 25 or higher)
+        if: matrix.erlang >= 25
+        working-directory: ${{ runner.temp }}/ci_runner_${{ matrix.template }}
+        run: ERL_FLAGS="-enable-feature maybe_expr" rebar3 do clean, check
 
       - name: Coveralls
         env:
